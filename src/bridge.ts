@@ -8,8 +8,8 @@ const MAX_SEEN = 256;
 
 export function addBounded(set: Set<string>, value: string): void {
   if (set.size >= MAX_SEEN) {
-    const first = set.values().next().value!;
-    set.delete(first);
+    const { value: first } = set.values().next();
+    if (first !== undefined) set.delete(first);
   }
   set.add(value);
 }
@@ -36,7 +36,10 @@ export class NicoMeetsBridge {
         body: JSON.stringify({ text: truncated }),
       });
     } catch (e) {
-      console.warn("[nico_meets] Could not reach nico_monitor:", e instanceof Error ? e.message : String(e));
+      console.warn(
+        "[nico_meets] Could not reach nico_monitor:",
+        e instanceof Error ? e.message : String(e),
+      );
     }
   }
 }

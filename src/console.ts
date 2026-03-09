@@ -1,5 +1,5 @@
-import { NicoMeetsBridge, addBounded } from "./bridge";
-import { findChatContainer, extractText } from "./dom";
+import { addBounded, NicoMeetsBridge } from "./bridge";
+import { extractText, findChatContainer } from "./dom";
 
 declare global {
   interface Window {
@@ -12,7 +12,7 @@ const NICO_MEETS_HOST = "localhost";
 const NICO_MEETS_PORT = 29292;
 // ---------------------------------------------
 
-(function () {
+(() => {
   if (window.__nicoMeets) {
     console.warn("[nico_meets] Already running. Use __nicoMeets.stop() first.");
     return;
@@ -29,7 +29,7 @@ const NICO_MEETS_PORT = 29292;
     const container = findChatContainer(document);
     if (!container) {
       console.warn(
-        "[nico_meets] Chat panel not found. Open the chat first, then run again."
+        "[nico_meets] Chat panel not found. Open the chat first, then run again.",
       );
       return;
     }
@@ -65,7 +65,7 @@ const NICO_MEETS_PORT = 29292;
 
     observer.observe(container, { childList: true, subtree: true });
     console.log(
-      `[nico_meets] Started. Watching for new chat messages. Sending to http://${NICO_MEETS_HOST}:${NICO_MEETS_PORT}/comment`
+      `[nico_meets] Started. Watching for new chat messages. Sending to http://${NICO_MEETS_HOST}:${NICO_MEETS_PORT}/comment`,
     );
   }
 

@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
-import { findChatContainer, extractText } from "./dom";
+import { describe, expect, it } from "vitest";
+import { extractText, findChatContainer } from "./dom";
 
 describe("DOM helpers", () => {
   let document: Document;
@@ -54,7 +54,7 @@ describe("DOM helpers", () => {
       `);
       document = dom.window.document;
 
-      const msgEl = document.querySelector("[data-message-id]")!;
+      const msgEl = document.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("Hello everyone");
     });
@@ -69,7 +69,7 @@ describe("DOM helpers", () => {
       `);
       document = dom.window.document;
 
-      const msgEl = document.querySelector("[data-message-id]")!;
+      const msgEl = document.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("Line one Line two");
     });
@@ -82,7 +82,7 @@ describe("DOM helpers", () => {
       `);
       document = dom.window.document;
 
-      const msgEl = document.querySelector("[data-message-id]")!;
+      const msgEl = document.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("");
     });

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NicoMeetsBridge, addBounded } from "./bridge";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { addBounded, NicoMeetsBridge } from "./bridge";
 
 describe("NicoMeetsBridge", () => {
   beforeEach(() => {
@@ -14,14 +14,11 @@ describe("NicoMeetsBridge", () => {
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
       await bridge.send("hello");
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        "http://localhost:29292/comment",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: "hello" }),
-        }
-      );
+      expect(fetchMock).toHaveBeenCalledWith("http://localhost:29292/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "hello" }),
+      });
     });
 
     it("truncates text longer than 255 characters", async () => {
@@ -47,7 +44,9 @@ describe("NicoMeetsBridge", () => {
     });
 
     it("warns on fetch failure without throwing", async () => {
-      const fetchMock = vi.fn().mockRejectedValue(new Error("connection refused"));
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValue(new Error("connection refused"));
       vi.stubGlobal("fetch", fetchMock);
       const warnMock = vi.spyOn(console, "warn").mockImplementation(() => {});
 
