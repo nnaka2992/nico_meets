@@ -17,10 +17,11 @@ export function findChatContainer(doc: Document): Element | null {
 }
 
 export function extractText(element: Element): string {
-  const children = Array.from(element.children);
-  // Skip first child (sender name), concatenate rest
-  return children
-    .slice(1)
+  // Meet messages: text lives inside [jsname="dTKtvb"] > div children
+  const textContainer = element.querySelector('[jsname="dTKtvb"]');
+  if (!textContainer) return "";
+
+  return Array.from(textContainer.children)
     .map((el) => el.textContent?.trim() ?? "")
     .filter(Boolean)
     .join(" ");

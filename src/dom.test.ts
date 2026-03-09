@@ -45,11 +45,16 @@ describe("DOM helpers", () => {
   });
 
   describe("extractText", () => {
-    it("extracts message text skipping sender name", () => {
+    it("extracts text from real Meet message structure", () => {
       const dom = new JSDOM(`
-        <div data-message-id="1">
-          <div class="sender">Alice</div>
-          <div class="body">Hello everyone</div>
+        <div class="RLrADb" data-message-id="spaces/abc/messages/123">
+          <div class="jO4O1">
+            <div class="ptNLrf">
+              <div jsname="dTKtvb"><div>Hello everyone</div></div>
+              <div class="UaaITe">tooltip</div>
+              <div class="Sd72u"><button>pin</button></div>
+            </div>
+          </div>
         </div>
       `);
       document = dom.window.document;
@@ -59,12 +64,15 @@ describe("DOM helpers", () => {
       expect(text).toBe("Hello everyone");
     });
 
-    it("extracts text from message with multiple body elements", () => {
+    it("extracts multiline message text", () => {
       const dom = new JSDOM(`
-        <div data-message-id="2">
-          <div class="sender">Bob</div>
-          <div class="body">Line one</div>
-          <div class="body">Line two</div>
+        <div class="RLrADb" data-message-id="spaces/abc/messages/456">
+          <div class="jO4O1">
+            <div class="ptNLrf">
+              <div jsname="dTKtvb"><div>Line one</div><div>Line two</div></div>
+              <div class="Sd72u"><button>pin</button></div>
+            </div>
+          </div>
         </div>
       `);
       document = dom.window.document;
@@ -74,10 +82,14 @@ describe("DOM helpers", () => {
       expect(text).toBe("Line one Line two");
     });
 
-    it("returns empty string for element with only sender", () => {
+    it("returns empty string when no dTKtvb element found", () => {
       const dom = new JSDOM(`
-        <div data-message-id="3">
-          <div class="sender">Charlie</div>
+        <div class="RLrADb" data-message-id="spaces/abc/messages/789">
+          <div class="jO4O1">
+            <div class="ptNLrf">
+              <div class="Sd72u"><button>pin</button></div>
+            </div>
+          </div>
         </div>
       `);
       document = dom.window.document;
