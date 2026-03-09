@@ -12,7 +12,7 @@ describe("NicoMeetsBridge", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      await bridge.send("hello");
+      await bridge.send("msg-1", "hello");
 
       expect(fetchMock).toHaveBeenCalledWith("http://localhost:29292/comment", {
         method: "POST",
@@ -27,7 +27,7 @@ describe("NicoMeetsBridge", () => {
 
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
       const longText = "あ".repeat(300);
-      await bridge.send(longText);
+      await bridge.send("msg-1", longText);
 
       const sentBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect([...sentBody.text].length).toBe(255);
@@ -38,9 +38,43 @@ describe("NicoMeetsBridge", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      await bridge.send("");
+      await bridge.send("msg-1", "");
 
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("deduplicates by message ID", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
+      await bridge.send("msg-1", "hello");
+      await bridge.send("msg-1", "hello");
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("deduplicates short numeric ID and full-path ID", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
+      await bridge.send("1773035015853231", "test");
+      await bridge.send("spaces/4BEMZ/messages/1773035015853231", "test");
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends identical text with different IDs", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
+      await bridge.send("msg-1", "test");
+      await bridge.send("msg-2", "test");
+      await bridge.send("msg-3", "test");
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
     it("warns on fetch failure without throwing", async () => {
@@ -51,33 +85,31 @@ describe("NicoMeetsBridge", () => {
       const warnMock = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      await bridge.send("hello");
+      await bridge.send("msg-1", "hello");
 
       expect(warnMock).toHaveBeenCalled();
     });
-  });
 
-  describe("dedup", () => {
-    it("does not send the same message twice", async () => {
+    it("does not send pre-marked IDs", async () => {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      await bridge.send("hello");
-      await bridge.send("hello");
+      bridge.markSeen("msg-1");
+      await bridge.send("msg-1", "hello");
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("sends different messages", async () => {
+    it("markSeen normalizes full-path IDs", async () => {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
       const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      await bridge.send("hello");
-      await bridge.send("world");
+      bridge.markSeen("spaces/X/messages/123");
+      await bridge.send("123", "hello");
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -99,24 +131,6 @@ describe("NicoMeetsBridge", () => {
       expect(set.size).toBe(256);
       expect(set.has("msg-0")).toBe(false);
       expect(set.has("new")).toBe(true);
-    });
-
-    it("allows re-sending a message after it is evicted", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-      vi.stubGlobal("fetch", fetchMock);
-
-      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      // Fill the cache with 256 messages (msg-0 through msg-255)
-      for (let i = 0; i < 256; i++) {
-        await bridge.send(`msg-${i}`);
-      }
-      // Send one more to trigger eviction of msg-0
-      await bridge.send("overflow");
-      expect(fetchMock).toHaveBeenCalledTimes(257);
-
-      // msg-0 was evicted, so it should be accepted again
-      await bridge.send("msg-0");
-      expect(fetchMock).toHaveBeenCalledTimes(258);
     });
 
     it("retains recent entries after eviction", () => {

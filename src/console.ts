@@ -1,5 +1,5 @@
-import { addBounded, NicoMeetsBridge } from "./bridge";
-import { extractText, findChatContainer } from "./dom";
+import { NicoMeetsBridge } from "./bridge";
+import { extractText, findChatContainer, MESSAGE_SELECTOR } from "./dom";
 
 declare global {
   interface Window {
@@ -35,11 +35,10 @@ const NICO_MEETS_PORT = 29292;
     }
 
     // Snapshot existing message IDs so we only forward new ones
-    const seenIds = new Set<string>();
-    const existing = container.querySelectorAll("[data-message-id]");
+    const existing = container.querySelectorAll(MESSAGE_SELECTOR);
     for (const msg of existing) {
       const id = msg.getAttribute("data-message-id");
-      if (id) addBounded(seenIds, id);
+      if (id) bridge.markSeen(id);
     }
 
     observer = new MutationObserver((mutations) => {
@@ -47,17 +46,16 @@ const NICO_MEETS_PORT = 29292;
         for (const node of mutation.addedNodes) {
           if (!(node instanceof Element)) continue;
 
-          const messages = node.matches("[data-message-id]")
+          const messages = node.matches(MESSAGE_SELECTOR)
             ? [node]
-            : Array.from(node.querySelectorAll("[data-message-id]"));
+            : Array.from(node.querySelectorAll(MESSAGE_SELECTOR));
 
           for (const msg of messages) {
             const id = msg.getAttribute("data-message-id");
-            if (id && seenIds.has(id)) continue;
-            if (id) addBounded(seenIds, id);
+            if (!id) continue;
 
             const text = extractText(msg);
-            if (text) bridge.send(text);
+            if (text) bridge.send(id, text);
           }
         }
       }

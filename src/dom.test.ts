@@ -1,6 +1,6 @@
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
-import { extractText, findChatContainer } from "./dom";
+import { extractText, findChatContainer, MESSAGE_SELECTOR } from "./dom";
 
 describe("DOM helpers", () => {
   let document: Document;
@@ -80,6 +80,26 @@ describe("DOM helpers", () => {
       const msgEl = document.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("Line one Line two");
+    });
+
+    it("does not match pin button as a message element", () => {
+      const dom = new JSDOM(`
+        <div aria-live="polite">
+          <div class="RLrADb" data-message-id="spaces/abc/messages/123">
+            <div class="jO4O1"><div class="ptNLrf">
+              <div jsname="dTKtvb"><div>test</div></div>
+              <div class="Sd72u"><span data-is-tooltip-wrapper="true">
+                <button data-message-id="spaces/abc/messages/123">pin</button>
+              </span></div>
+            </div></div>
+          </div>
+        </div>
+      `);
+      document = dom.window.document;
+
+      const container = findChatContainer(document) as Element;
+      const messages = container.querySelectorAll(MESSAGE_SELECTOR);
+      expect(messages.length).toBe(1);
     });
 
     it("returns empty string when no dTKtvb element found", () => {

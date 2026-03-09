@@ -14,20 +14,37 @@ export function addBounded(set: Set<string>, value: string): void {
   set.add(value);
 }
 
+// Meet assigns IDs in two phases: first a short numeric ID on optimistic
+// render (e.g. "1773035015853231"), then the full path once the server
+// confirms (e.g. "spaces/4BEMZ.../messages/1773035015853231"). Both appear
+// as separate MutationObserver additions, so we normalize to the trailing
+// segment for dedup.
+function normalizeId(id: string): string {
+  const slash = id.lastIndexOf("/");
+  return slash === -1 ? id : id.slice(slash + 1);
+}
+
 export class NicoMeetsBridge {
   private endpoint: string;
-  private seen = new Set<string>();
+  private seenIds = new Set<string>();
 
   constructor(options: BridgeOptions) {
     this.endpoint = `http://${options.host}:${options.port}/comment`;
   }
 
-  async send(text: string): Promise<void> {
-    if (!text) return;
-    if (this.seen.has(text)) return;
-    addBounded(this.seen, text);
+  markSeen(id: string): void {
+    addBounded(this.seenIds, normalizeId(id));
+  }
 
-    const truncated = [...text].slice(0, MAX_RUNES).join("");
+  async send(id: string, text: string): Promise<void> {
+    if (!text) return;
+    const key = normalizeId(id);
+    if (this.seenIds.has(key)) return;
+    addBounded(this.seenIds, key);
+
+    const runes = [...text];
+    const truncated =
+      runes.length <= MAX_RUNES ? text : runes.slice(0, MAX_RUNES).join("");
 
     try {
       await fetch(this.endpoint, {

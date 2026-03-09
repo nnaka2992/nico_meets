@@ -1,3 +1,5 @@
+export const MESSAGE_SELECTOR = "div[data-message-id]";
+
 export function findChatContainer(doc: Document): Element | null {
   // Strategy 1: aria-live polite region with child messages
   const liveRegions = doc.querySelectorAll('[aria-live="polite"]');
@@ -8,7 +10,7 @@ export function findChatContainer(doc: Document): Element | null {
   }
 
   // Strategy 2: parent of data-message-id elements
-  const msgEl = doc.querySelector("[data-message-id]");
+  const msgEl = doc.querySelector(MESSAGE_SELECTOR);
   if (msgEl?.parentElement) {
     return msgEl.parentElement;
   }
