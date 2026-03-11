@@ -1,5 +1,10 @@
 import { NicoMeetsBridge } from "./bridge";
-import { extractText, findChatContainer, MESSAGE_SELECTOR } from "./dom";
+import {
+  extractText,
+  findChatContainer,
+  isConfirmedMessage,
+  MESSAGE_SELECTOR,
+} from "./dom";
 
 declare global {
   interface Window {
@@ -52,10 +57,25 @@ const NICO_MEETS_PORT = 29292;
 
           for (const msg of messages) {
             const id = msg.getAttribute("data-message-id");
-            if (!id) continue;
+            // Skip optimistic renders — Meet adds each message twice: first
+            // with a short numeric ID, then with a server-confirmed "spaces/…"
+            // ID. The two IDs are unrelated, so we only process the confirmed
+            // one to avoid sending duplicates.
+            if (!id || !isConfirmedMessage(id)) continue;
 
             const text = extractText(msg);
-            if (text) bridge.send(id, text);
+            if (!text) {
+              console.warn(
+                "[nico_meets] Could not extract text from message element. Meet DOM may have changed.",
+                id,
+              );
+              continue;
+            }
+            bridge
+              .send(id, text)
+              .catch((e) =>
+                console.warn("[nico_meets] unexpected error for", id, e),
+              );
           }
         }
       }

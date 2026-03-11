@@ -21,7 +21,7 @@ describe("NicoMeetsBridge", () => {
       });
     });
 
-    it("truncates text longer than 255 characters", async () => {
+    it("truncates text longer than 255 runes", async () => {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
@@ -54,17 +54,6 @@ describe("NicoMeetsBridge", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it("deduplicates short numeric ID and full-path ID", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-      vi.stubGlobal("fetch", fetchMock);
-
-      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      await bridge.send("1773035015853231", "test");
-      await bridge.send("spaces/4BEMZ/messages/1773035015853231", "test");
-
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
     it("sends identical text with different IDs", async () => {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
@@ -75,6 +64,19 @@ describe("NicoMeetsBridge", () => {
       await bridge.send("msg-3", "test");
 
       expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("warns on non-OK HTTP response", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+      vi.stubGlobal("fetch", fetchMock);
+      const warnMock = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
+      await bridge.send("msg-1", "hello");
+
+      expect(warnMock).toHaveBeenCalledWith(
+        "[nico_meets] nico_monitor responded 500",
+      );
     });
 
     it("warns on fetch failure without throwing", async () => {
@@ -100,17 +102,6 @@ describe("NicoMeetsBridge", () => {
 
       expect(fetchMock).not.toHaveBeenCalled();
     });
-
-    it("markSeen normalizes full-path IDs", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-      vi.stubGlobal("fetch", fetchMock);
-
-      const bridge = new NicoMeetsBridge({ host: "localhost", port: 29292 });
-      bridge.markSeen("spaces/X/messages/123");
-      await bridge.send("123", "hello");
-
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
   });
 
   describe("addBounded", () => {
@@ -120,27 +111,38 @@ describe("NicoMeetsBridge", () => {
       expect(set.has("a")).toBe(true);
     });
 
-    it("evicts the oldest entry when at capacity (256)", () => {
+    it("evicts the oldest entry when at capacity (255)", () => {
       const set = new Set<string>();
-      for (let i = 0; i < 256; i++) {
+      for (let i = 0; i < 255; i++) {
         addBounded(set, `msg-${i}`);
       }
-      expect(set.size).toBe(256);
+      expect(set.size).toBe(255);
 
       addBounded(set, "new");
-      expect(set.size).toBe(256);
+      expect(set.size).toBe(255);
       expect(set.has("msg-0")).toBe(false);
       expect(set.has("new")).toBe(true);
     });
 
+    it("does not evict when re-adding an existing value", () => {
+      const set = new Set<string>();
+      for (let i = 0; i < 255; i++) {
+        addBounded(set, `msg-${i}`);
+      }
+
+      addBounded(set, "msg-100");
+      expect(set.size).toBe(255);
+      expect(set.has("msg-0")).toBe(true);
+    });
+
     it("retains recent entries after eviction", () => {
       const set = new Set<string>();
-      for (let i = 0; i < 256; i++) {
+      for (let i = 0; i < 255; i++) {
         addBounded(set, `msg-${i}`);
       }
 
       addBounded(set, "new");
-      expect(set.has("msg-255")).toBe(true);
+      expect(set.has("msg-254")).toBe(true);
       expect(set.has("msg-1")).toBe(true);
     });
   });

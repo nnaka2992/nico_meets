@@ -1,27 +1,23 @@
-export interface BridgeOptions {
+export type BridgeOptions = {
   host: string;
   port: number;
-}
+};
 
+// nico_monitor rejects messages longer than 255 runes
 const MAX_RUNES = 255;
-const MAX_SEEN = 256;
+// Cap dedup set to prevent unbounded growth in long sessions
+const MAX_SEEN = 255;
 
+// If value already exists, skip eviction — set.add is a no-op for
+// existing entries, so evicting would shrink the set for no reason.
 export function addBounded(set: Set<string>, value: string): void {
+  if (set.has(value)) return;
   if (set.size >= MAX_SEEN) {
+    // Set iterates in insertion order per ES2015 — first value is oldest
     const { value: first } = set.values().next();
     if (first !== undefined) set.delete(first);
   }
   set.add(value);
-}
-
-// Meet assigns IDs in two phases: first a short numeric ID on optimistic
-// render (e.g. "1773035015853231"), then the full path once the server
-// confirms (e.g. "spaces/4BEMZ.../messages/1773035015853231"). Both appear
-// as separate MutationObserver additions, so we normalize to the trailing
-// segment for dedup.
-function normalizeId(id: string): string {
-  const slash = id.lastIndexOf("/");
-  return slash === -1 ? id : id.slice(slash + 1);
 }
 
 export class NicoMeetsBridge {
@@ -33,25 +29,27 @@ export class NicoMeetsBridge {
   }
 
   markSeen(id: string): void {
-    addBounded(this.seenIds, normalizeId(id));
+    addBounded(this.seenIds, id);
   }
 
   async send(id: string, text: string): Promise<void> {
     if (!text) return;
-    const key = normalizeId(id);
-    if (this.seenIds.has(key)) return;
-    addBounded(this.seenIds, key);
+    if (this.seenIds.has(id)) return;
+    addBounded(this.seenIds, id);
 
     const runes = [...text];
     const truncated =
       runes.length <= MAX_RUNES ? text : runes.slice(0, MAX_RUNES).join("");
 
     try {
-      await fetch(this.endpoint, {
+      const res = await fetch(this.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: truncated }),
       });
+      if (!res.ok) {
+        console.warn(`[nico_meets] nico_monitor responded ${res.status}`);
+      }
     } catch (e) {
       console.warn(
         "[nico_meets] Could not reach nico_monitor:",

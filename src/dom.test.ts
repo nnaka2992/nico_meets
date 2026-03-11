@@ -1,10 +1,13 @@
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
-import { extractText, findChatContainer, MESSAGE_SELECTOR } from "./dom";
+import {
+  extractText,
+  findChatContainer,
+  isConfirmedMessage,
+  MESSAGE_SELECTOR,
+} from "./dom";
 
 describe("DOM helpers", () => {
-  let document: Document;
-
   describe("findChatContainer", () => {
     it("finds container by aria-live polite", () => {
       const dom = new JSDOM(`
@@ -14,9 +17,9 @@ describe("DOM helpers", () => {
           </div>
         </div>
       `);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const container = findChatContainer(document);
+      const container = findChatContainer(doc);
       expect(container).not.toBeNull();
       expect(container?.getAttribute("aria-live")).toBe("polite");
     });
@@ -29,17 +32,34 @@ describe("DOM helpers", () => {
           </div>
         </div>
       `);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const container = findChatContainer(document);
+      const container = findChatContainer(doc);
       expect(container).not.toBeNull();
+    });
+
+    it("skips aria-live polite regions without message children", () => {
+      const dom = new JSDOM(`
+        <div>
+          <div aria-live="polite"><span>toast notification</span></div>
+          <div class="chat-list">
+            <div data-message-id="1">message</div>
+          </div>
+        </div>
+      `);
+      const doc = dom.window.document;
+
+      const container = findChatContainer(doc);
+      expect(container).not.toBeNull();
+      expect(container?.getAttribute("aria-live")).toBeNull();
+      expect(container?.classList.contains("chat-list")).toBe(true);
     });
 
     it("returns null when no chat container found", () => {
       const dom = new JSDOM(`<div><p>no chat here</p></div>`);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const container = findChatContainer(document);
+      const container = findChatContainer(doc);
       expect(container).toBeNull();
     });
   });
@@ -57,9 +77,9 @@ describe("DOM helpers", () => {
           </div>
         </div>
       `);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const msgEl = document.querySelector("[data-message-id]") as Element;
+      const msgEl = doc.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("Hello everyone");
     });
@@ -75,9 +95,9 @@ describe("DOM helpers", () => {
           </div>
         </div>
       `);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const msgEl = document.querySelector("[data-message-id]") as Element;
+      const msgEl = doc.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("Line one Line two");
     });
@@ -95,9 +115,9 @@ describe("DOM helpers", () => {
           </div>
         </div>
       `);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const container = findChatContainer(document) as Element;
+      const container = findChatContainer(doc) as Element;
       const messages = container.querySelectorAll(MESSAGE_SELECTOR);
       expect(messages.length).toBe(1);
     });
@@ -112,11 +132,27 @@ describe("DOM helpers", () => {
           </div>
         </div>
       `);
-      document = dom.window.document;
+      const doc = dom.window.document;
 
-      const msgEl = document.querySelector("[data-message-id]") as Element;
+      const msgEl = doc.querySelector("[data-message-id]") as Element;
       const text = extractText(msgEl);
       expect(text).toBe("");
+    });
+  });
+
+  describe("isConfirmedMessage", () => {
+    it("returns true for server-confirmed IDs (spaces/...)", () => {
+      expect(
+        isConfirmedMessage("spaces/XskKQZXdF6cB/messages/1773204322789583"),
+      ).toBe(true);
+    });
+
+    it("returns false for optimistic short numeric IDs", () => {
+      expect(isConfirmedMessage("1773204291724")).toBe(false);
+    });
+
+    it("returns false for empty string", () => {
+      expect(isConfirmedMessage("")).toBe(false);
     });
   });
 });
