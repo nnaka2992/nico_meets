@@ -25,6 +25,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
           # See: https://github.com/anthropics/claude-code-action/blob/main/docs/solutions.md
           prompt: |
             REPO: ${{ github.repository }}
@@ -41,5 +42,3 @@ jobs:
             Use `gh pr comment` for top-level feedback.
             Use `mcp__github_inline_comment__create_inline_comment` to highlight specific code issues.
             Only post GitHub comments - don't submit review text as messages.
-          claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
